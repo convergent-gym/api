@@ -1,10 +1,14 @@
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
-
+use chrono::{Utc};
 mod objects;
 pub use objects::user::{User, SSOProvider};
+pub use objects::distance_record::{DistanceRecord};
+pub use objects::gym::{Gym};
+pub use objects::gym_fav::{GymFav};
+pub use objects::machine::{Machine, MachineStatus};
 
-#[get("/")]
-async fn hello() -> web::Json<User> {
+#[get("/sample-user")]
+async fn sample_user() -> web::Json<User> {
     let user_test = User {
         id: String::from("adbee93e-0dff-45a2-a958-3e5c7fda6b76"),
         sso_provider: SSOProvider::APPLE,
@@ -15,23 +19,65 @@ async fn hello() -> web::Json<User> {
     web::Json(user_test)
 }
 
+#[get("/sample-distrecord")]
+async fn sample_distrecord() -> web::Json<DistanceRecord> {
+    let distrecord_test = DistanceRecord {
+        machine_id: String::from("adbee93e-0dff-45a2-a958-3e5c7fda6b76"),
+        datetime: Utc::now(),
+        distance: 0.2
+    };
 
-#[post("/echo")]
-async fn echo(req_body: String) -> impl Responder {
-    HttpResponse::Ok().body(req_body)
+    web::Json(distrecord_test)
 }
 
-async fn manual_hello() -> impl Responder {
-    HttpResponse::Ok().body("Hey there!")
+#[get("/sample-gym")]
+async fn sample_gym() -> web::Json<Gym> {
+    let gym_test = Gym {
+        id: String::from("adbee93e-0dff-45a2-a958-3e5c7fda6b76"),
+        name: String::from("testname"),
+        lat: 39.9517176,
+        lng: -75.1609552375557
+    };
+
+    web::Json(gym_test)
 }
+
+#[get("/sample-gymfav")]
+async fn sample_gymfav() -> web::Json<GymFav> {
+    let gymfav_test = GymFav {
+        gym_id: String::from("adbee93e-0dff-45a2-a958-3e5c7fda6b76"),
+        user_id: String::from("adbee93e-0dff-45a2-a958-3e5c7fda6b76"),
+    };
+
+    web::Json(gymfav_test)
+}
+
+#[get("/sample-machine")]
+async fn sample_machine() -> web::Json<Machine> {
+    let machine_test = Machine {
+        id: String::from("adbee93e-0dff-45a2-a958-3e5c7fda6b76"),
+        gym_id: String::from("adbee93e-0dff-45a2-a958-3e5c7fda6b76"),
+        kind: String::from("cable_generic"),
+        manufacturer: String::from("Matrix"),
+        max_weight: 245,
+        model_num: String::from("ABC-123"),
+        status: MachineStatus::OPEN,
+        secret: String::from("secret-token-here")
+    };
+
+    web::Json(machine_test)
+}
+
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
         App::new()
-            .service(hello)
-            .service(echo)
-            .route("/hey", web::get().to(manual_hello))
+            .service(sample_distrecord)
+            .service(sample_user)
+            .service(sample_gym)
+            .service(sample_gymfav)
+            .service(sample_machine)
     })
     .bind(("127.0.0.1", 8080))?
     .run()
