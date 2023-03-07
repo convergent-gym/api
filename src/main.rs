@@ -1,5 +1,6 @@
-use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{get, web, App, Responder};
 use chrono::{Utc};
+
 mod objects;
 pub use objects::user::{User, SSOProvider};
 pub use objects::distance_record::{DistanceRecord};
@@ -34,7 +35,7 @@ async fn sample_distrecord() -> web::Json<DistanceRecord> {
 async fn sample_gym() -> web::Json<Gym> {
     let gym_test = Gym {
         id: String::from("adbee93e-0dff-45a2-a958-3e5c7fda6b76"),
-        name: String::from("testname"),
+        name: String::from("Market Street Gym"),
         lat: 39.9517176,
         lng: -75.1609552375557
     };
