@@ -1,12 +1,14 @@
 use serde::Serialize;
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum SSOProvider { 
-	GOOGLE,
-	APPLE,
+	Google,
+	Apple,
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct User {
 	pub id: String,
 	pub name: String,

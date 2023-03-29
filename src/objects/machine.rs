@@ -1,13 +1,15 @@
 use serde::Serialize;
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum MachineStatus {
-	OPEN,
-	IN_USE,
-	MAINTENCE,
+	Open,
+	InUse,
+	Maintence,
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Machine {
 	pub id: String,
 	pub gym_id: String,
