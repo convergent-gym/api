@@ -61,7 +61,11 @@ async fn get_distance(req: HttpRequest) -> web::Json<DistanceRecord> {
         "datetime",
         FirestoreQueryDirection::Descending,
     )])
-   
+    // .filter(|q| { // Fluent filter API example
+    //     q.for_all([
+    //         q.field("machineId").eq(machine_id.as_str()),
+    //     ])
+    // })
     .obj() // Reading documents as structures using Serde gRPC deserializer
     .stream_query()
     .await.unwrap();
