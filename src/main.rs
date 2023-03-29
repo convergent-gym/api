@@ -1,14 +1,13 @@
 use actix_web::{get, post, web, App, HttpServer, HttpResponse, HttpRequest};
+use actix_web::http::header::ContentType;
 use chrono::{Utc};
 
 mod objects;
-use futures::StreamExt;
 pub use objects::user::{User, SSOProvider};
 pub use objects::distance_record::{DistanceRecord, DistanceRecordRequest};
 pub use objects::gym::{Gym};
 pub use objects::gym_fav::{GymFav};
 pub use objects::machine::{Machine, MachineStatus};
-use uuid::Uuid;
 use tokio_postgres::*;
 use std::env;
 
@@ -55,7 +54,7 @@ async fn create_distance_record(req: HttpRequest, info: web::Json<DistanceRecord
 }
 
 #[get("/machines/{machine_id}/distance")]
-async fn get_distance(req: HttpRequest) -> web::Json<DistanceRecord> {
+async fn get_distance(req: HttpRequest) -> HttpResponse {
     let machine_id: String = req.match_info().get("machine_id").unwrap().parse().unwrap();
 
     let client = connect_to_db().await;
@@ -72,11 +71,14 @@ async fn get_distance(req: HttpRequest) -> web::Json<DistanceRecord> {
 
     let result_object: DistanceRecord = DistanceRecord { machine_id:  result_record[0].get(0), datetime:  result_record[0].get(1), distance:  result_record[0].get(2) };
 
-    web::Json(result_object)
+    HttpResponse::Ok()
+    .content_type(ContentType::json())
+    .json(web::Json(result_object)).into()
 }
 
-#[get("/sample-user")]
+// Below return sample objects
 
+#[get("/sample-user")]
 async fn sample_user() -> web::Json<User> {
     let user_test = User {
         id: String::from("adbee93e-0dff-45a2-a958-3e5c7fda6b76"),
