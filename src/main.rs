@@ -8,19 +8,27 @@ pub use objects::distance_record::{DistanceRecord, DistanceRecordRequest};
 pub use objects::gym::{Gym};
 pub use objects::gym_fav::{GymFav};
 pub use objects::machine::{Machine, MachineStatus};
-use firestore::*; 
-use futures::stream::BoxStream;
 use uuid::Uuid;
+use tokio_postgres::*;
+
+// TODO: ths is definitely not the proper way to handle connections
+async fn connect_to_db() -> tokio_postgres::Client {
+    let db_uri =  env::var("DB_URI").expect("Expected Database URI");
+    let db_uri =  db_uri_env.as_str();
+
+    let (client, connection) = tokio_postgres::connect(db_uri, NoTls).await.unwrap();
+    tokio::spawn(async move {
+        if let Err(e) = connection.await {
+            eprintln!("connection error: {}", e);
+        }
+    });
+    
+    return client;
+}
 
 #[post("/machines/{machine_id}/records")]
 async fn create_distance_record(req: HttpRequest, info: web::Json<DistanceRecordRequest>) -> HttpResponse {
     let machine_id: String = req.match_info().get("machine_id").unwrap().parse().unwrap();
-
-    let db = FirestoreDb::with_options_token_source(
-        FirestoreDbOptions::new(String::from("convergentgymiot")),
-        gcloud_sdk::GCP_DEFAULT_SCOPES.clone(),
-        gcloud_sdk::TokenSourceType::File("./target/debug/key.json".into())
-    ).await.unwrap();
 
     if info.machine_id != machine_id {
         return HttpResponse::BadRequest().into();
@@ -32,12 +40,10 @@ async fn create_distance_record(req: HttpRequest, info: web::Json<DistanceRecord
         distance: info.distance
     };
 
-    let resultant_record = db.fluent()
-        .insert()
-        .into("distance_records")
-        .document_id(Uuid::new_v4().to_string())
-        .object(&distance_record)
-        .execute::<DistanceRecord>()
+    let client = connect_to_db().await;
+
+    let rows = client
+        .query("INSERT INTO distance_records (machine_id, datetime, distance) VALUES($1, $2, $3);", &[ &distance_record.machine_id, &distance_record.datetime, &distance_record.distance])
         .await.unwrap();
 
     return HttpResponse::Ok().into();
@@ -47,30 +53,13 @@ async fn create_distance_record(req: HttpRequest, info: web::Json<DistanceRecord
 async fn get_distance(req: HttpRequest) -> web::Json<DistanceRecord> {
     let machine_id: String = req.match_info().get("machine_id").unwrap().parse().unwrap();
 
-    let db = FirestoreDb::with_options_token_source(
-        FirestoreDbOptions::new(String::from("convergentgymiot")),
-        gcloud_sdk::GCP_DEFAULT_SCOPES.clone(),
-        gcloud_sdk::TokenSourceType::File("./target/debug/key.json".into())
-    ).await.unwrap();
+    let client = connect_to_db().await;
 
-   
-    let mut object_stream: BoxStream<DistanceRecord> = db.fluent()
-    .select()
-    .from("distance_records")
-    .order_by([(
-        "datetime",
-        FirestoreQueryDirection::Descending,
-    )])
-    // .filter(|q| { // Fluent filter API example
-    //     q.for_all([
-    //         q.field("machineId").eq(machine_id.as_str()),
-    //     ])
-    // })
-    .obj() // Reading documents as structures using Serde gRPC deserializer
-    .stream_query()
-    .await.unwrap();
+    let rows = client
+        .query("SELECT machine_id, datetime, distance FROM distance_records WHERE machine_id = $1 ORDER BY datetime DESC LIMIT 1;", &[ &machine_id ])
+        .await.unwrap();
 
-    let result: DistanceRecord = object_stream.next().await.unwrap();
+    let result: DistanceRecord = DistanceRecord { machine_id:  rows[0].get(0), datetime:  rows[0].get(1), distance:  rows[0].get(2) };
 
     web::Json(result)
 }
