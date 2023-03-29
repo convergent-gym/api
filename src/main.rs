@@ -13,7 +13,7 @@ use tokio_postgres::*;
 
 // TODO: ths is definitely not the proper way to handle connections
 async fn connect_to_db() -> tokio_postgres::Client {
-    let db_uri =  env::var("DB_URI").expect("Expected Database URI");
+    let db_uri_env =  env::var("DB_URI").expect("Expected Database URI");
     let db_uri =  db_uri_env.as_str();
 
     let (client, connection) = tokio_postgres::connect(db_uri, NoTls).await.unwrap();
