@@ -10,6 +10,7 @@ pub use objects::gym_fav::{GymFav};
 pub use objects::machine::{Machine, MachineStatus};
 use uuid::Uuid;
 use tokio_postgres::*;
+use std::env;
 
 // TODO: ths is definitely not the proper way to handle connections
 async fn connect_to_db() -> tokio_postgres::Client {
