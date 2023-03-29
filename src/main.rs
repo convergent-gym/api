@@ -43,9 +43,13 @@ async fn create_distance_record(req: HttpRequest, info: web::Json<DistanceRecord
 
     let client = connect_to_db().await;
 
-    let rows = client
+    let result = client
         .query("INSERT INTO distance_records (machine_id, datetime, distance) VALUES($1, $2, $3);", &[ &distance_record.machine_id, &distance_record.datetime, &distance_record.distance])
-        .await.unwrap();
+        .await;
+
+    if result.is_err() {
+        return HttpResponse::InternalServerError().into();
+    }
 
     return HttpResponse::Ok().into();
 }
@@ -56,13 +60,19 @@ async fn get_distance(req: HttpRequest) -> web::Json<DistanceRecord> {
 
     let client = connect_to_db().await;
 
-    let rows = client
+    let result = client
         .query("SELECT machine_id, datetime, distance FROM distance_records WHERE machine_id = $1 ORDER BY datetime DESC LIMIT 1;", &[ &machine_id ])
-        .await.unwrap();
+        .await;
 
-    let result: DistanceRecord = DistanceRecord { machine_id:  rows[0].get(0), datetime:  rows[0].get(1), distance:  rows[0].get(2) };
+    if result.is_err() {
+        return HttpResponse::InternalServerError().into();
+    }
 
-    web::Json(result)
+    let result_record = result.unwrap();
+
+    let result_object: DistanceRecord = DistanceRecord { machine_id:  result_record[0].get(0), datetime:  result_record[0].get(1), distance:  result_record[0].get(2) };
+
+    web::Json(result_object)
 }
 
 #[get("/sample-user")]
