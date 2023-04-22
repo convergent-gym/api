@@ -10,7 +10,6 @@ RUN cargo install --path .
 # Running stage
 FROM gcr.io/distroless/cc-debian10 as run
 
-COPY ./key.json ./key.json
 COPY --from=build /usr/local/cargo/bin/gat-api /usr/local/bin/gat-api
 
 CMD ["gat-api"]

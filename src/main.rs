@@ -8,6 +8,7 @@ pub use objects::distance_record::{DistanceRecord, DistanceRecordRequest};
 pub use objects::gym::{Gym};
 pub use objects::gym_fav::{GymFav};
 pub use objects::machine::{Machine, MachineStatus};
+use std::env;
 use firestore::*; 
 use futures::stream::BoxStream;
 use uuid::Uuid;
@@ -19,7 +20,7 @@ async fn create_distance_record(req: HttpRequest, info: web::Json<DistanceRecord
     let db = FirestoreDb::with_options_token_source(
         FirestoreDbOptions::new(String::from("convergentgymiot")),
         gcloud_sdk::GCP_DEFAULT_SCOPES.clone(),
-        gcloud_sdk::TokenSourceType::File("./key.json".into())
+        gcloud_sdk::TokenSourceType::Json(env::var("FIREBASE_KEY").expect("Expected a FIREBASE_KEY env variable"))
     ).await.unwrap();
 
     if info.machine_id != machine_id {
@@ -50,7 +51,7 @@ async fn get_distance(req: HttpRequest) -> web::Json<DistanceRecord> {
     let db = FirestoreDb::with_options_token_source(
         FirestoreDbOptions::new(String::from("convergentgymiot")),
         gcloud_sdk::GCP_DEFAULT_SCOPES.clone(),
-        gcloud_sdk::TokenSourceType::File("./target/debug/key.json".into())
+        gcloud_sdk::TokenSourceType::Json(env::var("FIREBASE_KEY").expect("Expected a FIREBASE_KEY env variable"))
     ).await.unwrap();
 
    
