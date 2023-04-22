@@ -19,7 +19,7 @@ async fn create_distance_record(req: HttpRequest, info: web::Json<DistanceRecord
     let db = FirestoreDb::with_options_token_source(
         FirestoreDbOptions::new(String::from("convergentgymiot")),
         gcloud_sdk::GCP_DEFAULT_SCOPES.clone(),
-        gcloud_sdk::TokenSourceType::File("./target/debug/key.json".into())
+        gcloud_sdk::TokenSourceType::File("./key.json".into())
     ).await.unwrap();
 
     if info.machine_id != machine_id {
@@ -151,7 +151,7 @@ async fn main() -> std::io::Result<()> {
             .service(create_distance_record)
             .service(get_distance)
     })
-    .bind(("127.0.0.1", 8080))?
+    .bind(("0.0.0.0", 80))?
     .run()
     .await
 }
