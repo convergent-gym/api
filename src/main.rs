@@ -3,6 +3,7 @@ use chrono::{Utc};
 
 mod objects;
 use futures::StreamExt;
+use objects::flag::{Flag, self};
 pub use objects::user::{User, SSOProvider};
 pub use objects::distance_record::{DistanceRecord, DistanceRecordRequest};
 pub use objects::gym::{Gym};
@@ -12,6 +13,23 @@ use std::env;
 use firestore::*; 
 use futures::stream::BoxStream;
 use uuid::Uuid;
+
+async fn get_flag(flagName: &str) -> String {
+    let db = FirestoreDb::with_options_token_source(
+        FirestoreDbOptions::new(String::from("convergentgymiot")),
+        gcloud_sdk::GCP_DEFAULT_SCOPES.clone(),
+        gcloud_sdk::TokenSourceType::Json(env::var("FIREBASE_KEY").expect("Expected a FIREBASE_KEY env variable"))
+    ).await.unwrap();
+
+    let object_stream: Flag = db.fluent()
+    .select()
+    .by_id_in("flags")
+    .obj()
+    .one(flagName)
+    .await.unwrap().unwrap();
+
+    return String::from(object_stream.value.clone());
+}
 
 #[post("/machines/{machine_id}/records")]
 async fn create_distance_record(req: HttpRequest, info: web::Json<DistanceRecordRequest>) -> HttpResponse {
@@ -41,118 +59,44 @@ async fn create_distance_record(req: HttpRequest, info: web::Json<DistanceRecord
         .execute::<DistanceRecord>()
         .await.unwrap();
 
+    let dist_threshold: f32 = get_flag("distance_threshold").await.parse().unwrap();
+    
+    let mut new_status: MachineStatus = MachineStatus::Open;
+    if resultant_record.distance <= dist_threshold {
+        new_status = MachineStatus::Taken;
+    }
+
+    let result = db.fluent()
+        .update()
+        .fields(paths!(Machine::{status}))
+        .in_col("machines")
+        .document_id(&distance_record.machine_id)
+        .object(&Machine  {
+            gym_id: String::from(""),
+            id: String::from(distance_record.machine_id),
+            kind: String::from(""),
+            manufacturer: String::from(""),
+            model_num: String::from(""),
+            max_weight: 0,
+            secret: String::from(""),
+            status: new_status
+        })
+        .execute::<Machine>().await;
+
+    if result.is_err() {
+        println!("Error: {}", result.err().unwrap().to_string());
+    }
+
     return HttpResponse::Ok().into();
 }
-
-#[get("/machines/{machine_id}/distance")]
-async fn get_distance(req: HttpRequest) -> web::Json<DistanceRecord> {
-    let machine_id: String = req.match_info().get("machine_id").unwrap().parse().unwrap();
-
-    let db = FirestoreDb::with_options_token_source(
-        FirestoreDbOptions::new(String::from("convergentgymiot")),
-        gcloud_sdk::GCP_DEFAULT_SCOPES.clone(),
-        gcloud_sdk::TokenSourceType::Json(env::var("FIREBASE_KEY").expect("Expected a FIREBASE_KEY env variable"))
-    ).await.unwrap();
-
-   
-    let mut object_stream: BoxStream<DistanceRecord> = db.fluent()
-    .select()
-    .from("distance_records")
-    .order_by([(
-        "datetime",
-        FirestoreQueryDirection::Descending,
-    )])
-    // .filter(|q| { // Fluent filter API example
-    //     q.for_all([
-    //         q.field("machineId").eq(machine_id.as_str()),
-    //     ])
-    // })
-    .obj() // Reading documents as structures using Serde gRPC deserializer
-    .stream_query()
-    .await.unwrap();
-
-    let result: DistanceRecord = object_stream.next().await.unwrap();
-
-    web::Json(result)
-}
-
-#[get("/sample-user")]
-
-async fn sample_user() -> web::Json<User> {
-    let user_test = User {
-        id: String::from("adbee93e-0dff-45a2-a958-3e5c7fda6b76"),
-        sso_provider: SSOProvider::Apple,
-        sso_token: String::from("d9d9d1ba-d61d-43bf-958d-0fde71bad9b9"),
-        name: String::from("testname")
-    };
-
-    web::Json(user_test)
-}
-
-
-#[get("/sample-distrecord")]
-async fn sample_distrecord() -> web::Json<DistanceRecord> {
-    let distrecord_test = DistanceRecord {
-        machine_id: String::from("adbee93e-0dff-45a2-a958-3e5c7fda6b76"),
-        datetime: Utc::now(),
-        distance: 0.2
-    };
-
-    web::Json(distrecord_test)
-}
-
-#[get("/sample-gym")]
-async fn sample_gym() -> web::Json<Gym> {
-    let gym_test = Gym {
-        id: String::from("adbee93e-0dff-45a2-a958-3e5c7fda6b76"),
-        name: String::from("Market Street Gym"),
-        lat: 39.9517176,
-        lng: -75.1609552375557
-    };
-
-    web::Json(gym_test)
-}
-
-#[get("/sample-gymfav")]
-async fn sample_gymfav() -> web::Json<GymFav> {
-    let gymfav_test = GymFav {
-        gym_id: String::from("adbee93e-0dff-45a2-a958-3e5c7fda6b76"),
-        user_id: String::from("adbee93e-0dff-45a2-a958-3e5c7fda6b76"),
-    };
-
-    web::Json(gymfav_test)
-}
-
-#[get("/sample-machine")]
-async fn sample_machine() -> web::Json<Machine> {
-    let machine_test = Machine {
-        id: String::from("adbee93e-0dff-45a2-a958-3e5c7fda6b76"),
-        gym_id: String::from("adbee93e-0dff-45a2-a958-3e5c7fda6b76"),
-        kind: String::from("cable_generic"),
-        manufacturer: String::from("Matrix"),
-        max_weight: 245,
-        model_num: String::from("ABC-123"),
-        status: MachineStatus::Open,
-        secret: String::from("secret-token-here")
-    };
-
-    web::Json(machine_test)
-}
-
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
         App::new()
-            .service(sample_distrecord)
-            .service(sample_user)
-            .service(sample_gym)
-            .service(sample_gymfav)
-            .service(sample_machine)
             .service(create_distance_record)
-            .service(get_distance)
     })
-    .bind(("0.0.0.0", 80))?
+    .bind(("0.0.0.0", 8080))?
     .run()
     .await
 }
