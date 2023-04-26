@@ -1,4 +1,4 @@
-# Swole Control (fka GAT) API
+# Swole Control API
 
 This is a web API that clients can use to query data about a gym's business and that our hardware can use to report data about gyms.
 
